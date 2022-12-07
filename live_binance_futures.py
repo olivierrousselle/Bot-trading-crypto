@@ -35,8 +35,8 @@ stochOverSold = 0.2
 emaWindow = 500
 
 # API
-binance_api_key = 'to3YP0nB6Vh9qaN2V2x8REbjfGoYlzBFeeYCkgXxdjdhUkMAo280GHLX4XxZvNGv'  # Enter your own API-key here
-binance_api_secret = 'tRm1qTNIVfQnYYzk0lG4DUE3FEfBS9MInKjQjbs4wS41hiETzU2FDcPSgfCetGzI'  # Enter your own API-secret here
+binance_api_key = ''  # Enter your own API-key here
+binance_api_secret = ''  # Enter your own API-secret here
 client = Client(api_key=binance_api_key, api_secret=binance_api_secret)
 
 klinesT = client.get_historical_klines(pairSymbol, timeInterval, "30 day ago UTC")
