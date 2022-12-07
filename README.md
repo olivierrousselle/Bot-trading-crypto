@@ -5,5 +5,6 @@ The following packages must be installed: python-binance, pandas_ta, ta.
 
 Description of the different files:
 - backtest_futures: backtest of a strategy using futures data (prices, volumes,...); 
-- live_binance: live trading strategy on spot for Binance exchange;  
-- live_binance_futures: live trading strategy on futures for Binance exchange. 
+- live_binance: live trading strategy on spot for Binance exchange (market buy/sell orders, take profit order, stop limit order);  
+- live_binance_futures: live trading strategy on futures for Binance exchange (long/short orders, take profit order, stop limit order); 
+- live_binance_multicoin: live trading stategy on spot for Binance exchange; the strategy authorizes to have several positions on different coins at the same time. 
