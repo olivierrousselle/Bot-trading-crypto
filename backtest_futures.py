@@ -7,7 +7,6 @@ from binance.client import Client
 import ta
 import matplotlib.pyplot as plt
 import numpy as np
-from custom_indicators import CustomIndocators as ci
 import datetime
 import warnings
 warnings.filterwarnings('ignore')
@@ -58,8 +57,6 @@ print("Data loaded 100%")
 df.drop(df.columns.difference(['open','high','low','close','volume']), 1, inplace=True)
 
 # -- TRIX --
-"""trix = ci.trix(close=df['close'],trixLength=9, trixSignal=21)
-df['TRIX_HISTO'] = trix.trix_histo() """
 df['TRIX'] = ta.trend.ema_indicator(ta.trend.ema_indicator(ta.trend.ema_indicator(close=df['close'], window=9), window=9), window=9)
 df['TRIX_PCT'] = df["TRIX"].pct_change()*100
 df['TRIX_SIGNAL'] = ta.trend.sma_indicator(df['TRIX_PCT'], 21)
@@ -70,13 +67,6 @@ df['STOCH_RSI'] = ta.momentum.stochrsi(close=df['close'], window=14)
 
 # EMA
 df['EMA'] = ta.trend.ema_indicator(close=df['close'], window=500)
-
-#Super Trend
-ST_length = 13
-ST_multiplier = 2.1
-superTrend = pda.supertrend(high=df['high'], low=df['low'], close=df['close'], length=ST_length, multiplier=ST_multiplier)
-df['SUPER_TREND'] = superTrend['SUPERT_'+str(ST_length)+"_"+str(ST_multiplier)] #Valeur de la super trend
-df['SUPER_TREND_DIRECTION'] = superTrend['SUPERTd_'+str(ST_length)+"_"+str(ST_multiplier)] #Retourne 1 si vert et -1 si rouge
 
 # ATR
 df['ATR'] = ta.volatility.AverageTrueRange(high=df['high'], low=df['low'], close=df['close'], window=13).average_true_range()
