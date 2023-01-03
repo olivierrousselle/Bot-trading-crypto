@@ -109,15 +109,11 @@ def get_step_size_futures(symbol):
 
 def convert_amount_to_precision(symbol, amount):
     stepSize = get_step_size_futures(symbol)
-    #return (amount//stepSize)*stepSize
-    #return round_step_size(amount, stepSize)
     amount = Decimal(str(amount))
     return float(amount - amount % Decimal(str(stepSize)))
 
 def convert_price_to_precision(symbol, price):
     stepSize = get_price_step(symbol)
-    #return (price//stepSize)*stepSize
-    #return round_step_size(price, stepSize)
     price = Decimal(str(price))
     return float(price - price % Decimal(str(stepSize)))
 
@@ -157,11 +153,7 @@ actualPrice = df['close'].iloc[-1]
 price = convert_price_to_precision(pairSymbol, actualPrice)
 
 if (not shortPosition and not longPosition and not stopTrades):
-    if wallet > initialWallet:
-        algoBenefit = ((wallet - initialWallet)/initialWallet)
-        proportionTrading = (initialWallet*(1+algoBenefit*0.5))/wallet * 0.2
-    else:
-        proportionTrading = 1 * 0.2
+    proportionTrading = 1
     if openLongCondition(df.iloc[-1], df.iloc[-2]):
         for openOrder in openOrders:
             client.futures_cancel_order(symbol=pairSymbol, orderId=openOrder['orderId'])
