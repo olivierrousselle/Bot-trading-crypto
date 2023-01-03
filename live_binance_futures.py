@@ -157,7 +157,7 @@ if (not shortPosition and not longPosition and not stopTrades):
     if openLongCondition(df.iloc[-1], df.iloc[-2]):
         for openOrder in openOrders:
             client.futures_cancel_order(symbol=pairSymbol, orderId=openOrder['orderId'])
-        time.sleep(5)
+        time.sleep(1)
         longQuantityInUsdt = usdtBalance * proportionTrading
         longAmount = convert_amount_to_precision(pairSymbol, longQuantityInUsdt*leverage/actualPrice)
         try:
@@ -165,11 +165,11 @@ if (not shortPosition and not longPosition and not stopTrades):
             print("Long", longAmount, coin, 'at', actualPrice, long)
         except:
             print("Unexpected error:", sys.exc_info()[0])
-        time.sleep(5)
+        time.sleep(1)
         try:
             tpPrice = convert_price_to_precision(pairSymbol, actualPrice*(1+TpPct))
             client.futures_create_order(symbol=pairSymbol, side='SELL', type='TAKE_PROFIT_MARKET', stopPrice=tpPrice, closePosition=True)
-            time.sleep(5)
+            time.sleep(1)
             slPrice = convert_price_to_precision(pairSymbol, actualPrice*(1-SlPct))
             client.futures_create_order(symbol=pairSymbol, side='SELL', type='STOP_MARKET', stopPrice=slPrice, closePosition=True)
         except:
@@ -177,7 +177,7 @@ if (not shortPosition and not longPosition and not stopTrades):
     elif openShortCondition(df.iloc[-1], df.iloc[-2]): 
         for openOrder in openOrders:
             client.futures_cancel_order(symbol=pairSymbol, orderId=openOrder['orderId'])
-        time.sleep(5)
+        time.sleep(1)
         shortQuantityInUsdt = usdtBalance * proportionTrading
         shortAmount = convert_amount_to_precision(pairSymbol, shortQuantityInUsdt*leverage/actualPrice)
         try:
@@ -189,7 +189,7 @@ if (not shortPosition and not longPosition and not stopTrades):
         try:
             tpPrice = convert_price_to_precision(pairSymbol, actualPrice*(1-TpPct))
             client.futures_create_order(symbol=pairSymbol, side='BUY', type='TAKE_PROFIT_MARKET', stopPrice=tpPrice, closePosition=True)
-            time.sleep(5)
+            time.sleep(1)
             slPrice = convert_price_to_precision(pairSymbol, actualPrice*(1+SlPct))
             client.futures_create_order(symbol=pairSymbol, side='BUY', type='STOP_MARKET', stopPrice=slPrice, closePosition=True)
         except:
@@ -198,7 +198,7 @@ else:
     if longPosition and closeLongCondition(df.iloc[-1], df.iloc[-2]):   
         for openOrder in openOrders:
             client.futures_cancel_order(symbol=pairSymbol, orderId=openOrder['orderId'])
-        time.sleep(5)
+        time.sleep(1)
         closeAmount = convert_amount_to_precision(pairSymbol, coinBalance)
         try:
             closeLong = client.futures_create_order(symbol=pairSymbol, side='SELL', type='MARKET', quantity=closeAmount, reduceOnly='true')
@@ -208,7 +208,7 @@ else:
     elif shortPosition and closeShortCondition(df.iloc[-1], df.iloc[-2]):
         for openOrder in openOrders:
             client.futures_cancel_order(symbol=pairSymbol, orderId=openOrder['orderId'])
-        time.sleep(5)
+        time.sleep(1)
         closeAmount = convert_amount_to_precision(pairSymbol, coinBalance)
         try:
             closeShort = client.futures_create_order(symbol=pairSymbol, side='BUY', type='MARKET', quantity=closeAmount, reduceOnly='true')
