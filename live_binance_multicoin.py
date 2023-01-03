@@ -68,18 +68,14 @@ print("Data and Indicators loaded 100%")
 
 # -- Condition to BUY market --
 def buyCondition(row, previousRow=None):
-    if (
-        row['STOCH_RSI'] < 0.05
-    ):
+    if row['TRIX_HISTO'] > 0 and row['STOCH_RSI'] < 0.05:
         return True
     else:
         return False
 
 # -- Condition to SELL market --
 def sellCondition(row, previousRow=None):
-    if (
-        row['STOCH_RSI'] > 0.95
-    ):
+    if row['TRIX_HISTO'] < 0 and row['STOCH_RSI'] > 0.95:
         return True
     else:
         return False
@@ -110,14 +106,14 @@ def get_price_step(symbol):
     return stepSize
 
 def convert_amount_to_precision(symbol, amount):
-    stepSize = get_step_size(symbol)
-    round_number = round(np.log(1/stepSize)/np.log(10))
-    return round((amount//stepSize)*stepSize, round_number)
+    stepSize = get_step_size_futures(symbol)
+    amount = Decimal(str(amount))
+    return float(amount - amount % Decimal(str(stepSize)))
 
 def convert_price_to_precision(symbol, price):
     stepSize = get_price_step(symbol)
-    round_number = round(np.log(1/stepSize)/np.log(10))
-    return round((price//stepSize)*stepSize, round_number)
+    price = Decimal(str(price))
+    return float(price - price % Decimal(str(stepSize)))
 
 usdtBalance = float(client.get_asset_balance(asset='USDT')['free'])
 coinBalance = {}
@@ -144,7 +140,7 @@ for coin in coinPositionList:
             orders = client.get_open_orders(symbol=symbol)    
             for order in orders:
                 client.cancel_order(symbol=symbol, orderId=order['orderId'])     
-            time.sleep(10)
+            time.sleep(1)
             sellAmount = convert_amount_to_precision(symbol, coinBalance[coin])
             sell = client.order_market_sell(symbol=symbol, quantity=sellAmount)
             print("Sell", coinBalance[coin], coin, sell)
@@ -172,9 +168,9 @@ if openPositions < maxOpenPosition:
                 buy = client.order_market_buy(symbol=symbol, quantity=buyAmount)
                 print("Buy", buyAmount, coin, 'at', actualPrice, buy)
 
-                time.sleep(10)
+                time.sleep(1)
                 try:
-                    time.sleep(10)
+                    time.sleep(1)
                     tp = client.order_limit_sell(symbol=symbol, quantity=buyAmount, price=tpPrice)
                     print("Place", buyAmount, coin, "TP at", tpPrice, tp)
                 except:
