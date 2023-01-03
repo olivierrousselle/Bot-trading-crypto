@@ -1,4 +1,5 @@
 from binance.client import Client
+from binance.enums import HistoricalKlinesType
 import pandas as pd
 import time
 from datetime import datetime
@@ -38,7 +39,7 @@ binance_api_key = ''  # Enter your own API-key here
 binance_api_secret = ''  # Enter your own API-secret here
 client = Client(api_key=binance_api_key, api_secret=binance_api_secret)
 
-klinesT = client.get_historical_klines(pairSymbol, timeInterval, "30 day ago UTC")
+klinesT = client.get_historical_klines(pairSymbol, timeInterval, "30 day ago UTC", klines_type=HistoricalKlinesType.FUTURES)
 df = pd.DataFrame(klinesT, columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time', 'quote_av', 'trades', 'tb_base_av', 'tb_quote_av', 'ignore' ])
 df['close'] = pd.to_numeric(df['close'])
 df['high'] = pd.to_numeric(df['high'])
