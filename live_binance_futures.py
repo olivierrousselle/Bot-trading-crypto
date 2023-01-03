@@ -4,7 +4,6 @@ import time
 from datetime import datetime
 import ta
 import numpy as np
-from binance.helpers import round_step_size
 from decimal import Decimal
 import sys
 
