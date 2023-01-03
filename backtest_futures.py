@@ -1,12 +1,11 @@
 # -- Import --
-import sys
-sys.path.append( '../utilities' )
 import pandas as pd
 import pandas_ta as pda
 from binance.client import Client
 import ta
 import matplotlib.pyplot as plt
 import numpy as np
+from binance.enums import HistoricalKlinesType
 import datetime
 import warnings
 warnings.filterwarnings('ignore')
@@ -16,7 +15,7 @@ client = Client()
 
 # -- You can change the crypto pair ,the start date and the time interval below --
 pairName = "ETHUSDT"
-startDate = "01 october 2020"
+startDate = "01 november 2021"
 timeInterval = '1h'
 
 # -- Hyper parameters --
@@ -24,27 +23,25 @@ stochOverBought = 0.8
 stochOverSold = 0.2
 SlPct = 0.05
 TpPct = 0.1
+maWindow = 500
 
 # -- You can change variables below --
 leverage = 1
 wallet = 1000
 makerFee = 0.0002
 takerFee = 0.0004
-maxDrawdown = -0.15
+maxDrawdown = -0.3
 
 # -- Rules --
 stopLossActivation = True
 takeProfitActivation = True
 
 # -- Load all price data from binance API --
-klinesT = client.get_historical_klines(pairName, timeInterval, startDate)
+klinesT = client.get_historical_klines(pairName, timeInterval, startDate, klines_type=HistoricalKlinesType.FUTURES)
 
 # -- Define your dataset --
 df = pd.DataFrame(klinesT, columns = ['timestamp', 'open', 'high', 'low', 'close', 'volume', 'close_time', 'quote_av', 'trades', 'tb_base_av', 'tb_quote_av', 'ignore' ])
-df['close'] = pd.to_numeric(df['close'])
-df['high'] = pd.to_numeric(df['high'])
-df['low'] = pd.to_numeric(df['low'])
-df['open'] = pd.to_numeric(df['open'])
+df['close'], df['high'], df['low'], df['open'] = pd.to_numeric(df['close']), pd.to_numeric(df['high']), pd.to_numeric(df['low']), pd.to_numeric(df['open'])
 
 # -- Set the date to index --
 df = df.set_index(df['timestamp'])
@@ -66,19 +63,13 @@ df['TRIX_HISTO'] = df['TRIX_PCT'] - df['TRIX_SIGNAL']
 df['STOCH_RSI'] = ta.momentum.stochrsi(close=df['close'], window=14)
 
 # EMA
-df['EMA'] = ta.trend.ema_indicator(close=df['close'], window=500)
-
-# ATR
-df['ATR'] = ta.volatility.AverageTrueRange(high=df['high'], low=df['low'], close=df['close'], window=13).average_true_range()
-
+df['EMA'] = ta.trend.ema_indicator(close=df['close'], window=maWindow)
+df['MA'] = ta.trend.sma_indicator(close=df['close'], window=maWindow)
 
 print("Indicators loaded 100%")
 
-
-dfTest = df.copy()
-
 # -- If you want to run your BackTest on a specific period, uncomment the line below --
-dfTest = df['2020-11-01':'2022-11-22']
+dfTest = df['2021-12-01':'2022-12-01']
 
 # -- Definition of dt, that will be the dataset to do your trades analyses --
 dt = None
@@ -97,75 +88,57 @@ shortIniPrice = 0
 longLiquidationPrice = 500000
 shortLiquidationPrice = 0
 
+row = dfTest.iloc[-2]
+
 # -- Condition to open Market LONG --
 def openLongCondition(row, previousRow):
-    if row['close'] > row['EMA'] and row['TRIX_HISTO'] > 0 and row['STOCH_RSI'] < stochOverBought:
-    #if 0 > 1:
+    if (row['close'] > row['MA'] 
+        and row['TRIX_HISTO'] > 0 
+        and row['STOCH_RSI'] < stochOverBought
+    ):
         return True
     else:
         return False
 
 # -- Condition to close Market LONG --
 def closeLongCondition(row, previousRow):
-    if row['TRIX_HISTO'] < 0 and row['STOCH_RSI'] > stochOverSold:
-    #if 0 > 1:
+    if (row['TRIX_HISTO'] < 0 and row['STOCH_RSI'] > stochOverSold):
         return True
     else:
         return False
 
 # -- Condition to open Market SHORT --
 def openShortCondition(row, previousRow):
-    if ( 
-        #row['EMA13'] < row['EMA38']
-        #row['SMA200'] < row['SMA600']
-        #row['SUPER_TREND_DIRECTION1']+row['SUPER_TREND_DIRECTION2']+row['SUPER_TREND_DIRECTION3'] < 1 and row['STOCH_RSI'] > 0.2
-        #row['EMA200'] > row['EMA121'] and row['EMA121'] > row['EMA100'] and row['EMA100'] > row['EMA50'] and row['EMA50'] > row['EMA30'] and row['EMA30'] > row['EMA7'] and row['STOCH_RSI'] > 0.2       
-        row['close'] < row['EMA'] and row['TRIX_HISTO'] < 0 and row['STOCH_RSI'] > stochOverSold
-        #previousRow['TRIX_HISTO'] > row['TRIX_HISTO']  and row['STOCH_RSI'] > stochOverSold
-        #previousRow['STOCH_RSI']  > row['STOCH_RSI'] 
-        #(row['AO'] < 0 and row['STOCH_RSI'] > stochOverSold) or row['WillR'] > -10
-        #(row['AO'] < 0 and row['STOCH_RSI'] > stochOverSold) or row['WillR'] > -10
-        ):
+    if (row['close'] < row['MA'] 
+        and row['TRIX_HISTO'] < 0 
+        and row['STOCH_RSI'] > stochOverSold
+    ):
         return True
     else:
         return False
 
 # -- Condition to close Market SHORT --
 def closeShortCondition(row, previousRow):
-    if (
-        #row['EMA13'] > row['EMA38']
-        #row['SMA200'] > row['SMA600']
-        #row['SUPER_TREND_DIRECTION1']+row['SUPER_TREND_DIRECTION2']+row['SUPER_TREND_DIRECTION3'] >= 1 and row['STOCH_RSI'] < 0.8 and row['close']>row['EMA90']       
-        #row['EMA7'] > row['EMA200']
-        row['TRIX_HISTO'] > 0 and row['STOCH_RSI'] < stochOverBought
-        #previousRow['TRIX_HISTO'] < row['TRIX_HISTO']  and row['STOCH_RSI'] < stochOverBought
-        #previousRow['STOCH_RSI']  < row['STOCH_RSI'] 
-        #row['AO'] >= 0 and row['WillR'] < -85
-        #row['AO'] >= 0 and previousRow['AO'] > row['AO'] and row['WillR'] < -85 and row['EMA100'] > row['EMA200']
-        ):
+    if (row['TRIX_HISTO'] > 0 and row['STOCH_RSI'] < stochOverBought):
         return True
     else:
         return False
 
 # -- Iteration on all your price dataset (df) --
-for index, row in dfTest.iterrows():
+for index, row in dfTest[1:].iterrows():
     stopTrades = (wallet-initialWallet)/initialWallet < maxDrawdown and dfTest.index[-1].day > 15
     if stopTrades:
         print("no trading")
-    if wallet > initialWallet:
-        algoBenefit = ((wallet - initialWallet)/initialWallet)
-        proportionTrading = (initialWallet*(1+algoBenefit*0.5))/wallet
-    else:
-        proportionTrading = 1
+    proportionTrading = 1
     # -- If there is an order in progress --
     if orderInProgress != '':
         closePosition = False
         # -- Check if there is a LONG order in progress --
         if orderInProgress == 'LONG':
             # -- Check Liquidation --
-            """if row['low'] < longLiquidationPrice:
+            if row['low'] < longLiquidationPrice:
                 print('/!\ YOUR LONG HAVE BEEN LIQUIDATED the',index)
-                break"""
+                break
             # -- Check Stop Loss --
             if row['low'] < stopLoss and stopLossActivation:
                 orderInProgress = ''
@@ -185,7 +158,7 @@ for index, row in dfTest.iterrows():
                 reason = 'Take Profit Long'
                 closePosition = True
             # -- Check If you have to close the LONG --
-            elif closeLongCondition(row, previousRow) == True:
+            elif closeLongCondition(row, previousRow):
                 orderInProgress = ''
                 closePrice = row['close']
                 #closePriceWithFee = row['close'] - takerFee * row['close']
@@ -193,13 +166,17 @@ for index, row in dfTest.iterrows():
                 position = 'Close Long'
                 reason = 'Close Market Long'
                 closePosition = True
+            """else:
+                stopLossTrail = row['close'] - SlPct * row['close']
+                if stopLossTrail < row['close'] and stopLossTrail > stopLoss:
+                    stopLoss = stopLossTrail"""
                 
         # -- Check if there is a SHORT order in progress --
         elif orderInProgress == 'SHORT':
             # -- Check Liquidation --
-            """if row['high'] > shortLiquidationPrice:
+            if row['high'] > shortLiquidationPrice:
                 print('/!\ YOUR SHORT HAVE BEEN LIQUIDATED the',index)
-                break"""
+                break
 
             # -- Check stop loss --
             if row['high'] > stopLoss and stopLossActivation :
@@ -220,7 +197,7 @@ for index, row in dfTest.iterrows():
                 reason = 'Take Profit Short'
                 closePosition = True
             # -- Check If you have to close the SHORT --
-            elif closeShortCondition(row, previousRow) == True:
+            elif closeShortCondition(row, previousRow):
                 orderInProgress = ''
                 closePrice = row['close']
                 #closePriceWithFee = row['close'] + takerFee * row['close']
@@ -228,6 +205,10 @@ for index, row in dfTest.iterrows():
                 position = 'Close Short'
                 reason = 'Close Market Short'
                 closePosition = True
+            """else:
+                stopLossTrail = row['close'] + SlPct * row['close']
+                if stopLossTrail > row['close'] and stopLossTrail < stopLoss:
+                    stopLoss = stopLossTrail"""             
                 
         if closePosition:
             #fee = wallet * (1+pr_change) * leverage * takerFee
@@ -238,9 +219,9 @@ for index, row in dfTest.iterrows():
             if wallet > lastAth:
                 lastAth = wallet
             # -- Add the trade to DT to analyse it later --
-            myrow = {'date': index, 'position': position, 'reason': reason, 'price': round(closePrice, 1),
-                     'frais': round(fee, 3), 'wallet': round(wallet, 1), 'drawBack': round((wallet-lastAth)/lastAth, 3),}
-            dt = dt.append(myrow, ignore_index=True)     
+            myrow = {'date': index, 'position': position, 'reason': reason, 'price': round(closePrice, 2),
+                     'frais': round(fee, 3), 'wallet': round(wallet, 2), 'drawBack': round((wallet-lastAth)/lastAth, 3),}
+            dt = dt.append(myrow, ignore_index=True) 
 
     # -- If there is NO order in progress --
     if orderInProgress == '' and not stopTrades:
@@ -248,46 +229,40 @@ for index, row in dfTest.iterrows():
         if openLongCondition(row, previousRow):
             orderInProgress = 'LONG'
             closePrice = row['close']
-            longIniPrice = row['close'] #+ takerFee * row['close']
-            #fee = wallet * leverage * takerFee
-            #amount = wallet * leverage - fee
+            longIniPrice = row['close'] 
             fee = wallet * proportionTrading * leverage * takerFee
             amount = wallet * proportionTrading * leverage - fee            
             wallet -= fee
             tokenAmount = amount / row['close']
-            #longLiquidationPrice = longIniPrice - (wallet/tokenAmount)
+            longLiquidationPrice = longIniPrice - (wallet/tokenAmount)
             if stopLossActivation:
                 stopLoss = closePrice - SlPct * closePrice
                 #stopLoss = closePrice - row['ATR']
             if takeProfitActivation:
                 takeProfit = closePrice + TpPct * closePrice
-                #takeProfit = closePrice + row['ATR'] * 2
+                #takeProfit = closePrice + 2*row['ATR']
             # -- Add the trade to DT to analyse it later --
-            myrow = {'date': index, 'position': 'Open Long', 'reason': 'Open Long Market', 'price': round(closePrice, 1),
-                     'frais': round(fee, 3), 'wallet': round(wallet+fee, 1), 'drawBack': round((wallet-lastAth)/lastAth, 3)}
+            myrow = {'date': index, 'position': 'Open Long', 'reason': 'Open Long Market', 'price': round(closePrice, 2),
+                     'frais': round(fee, 3), 'wallet': round(wallet+fee, 2), 'drawBack': round((wallet-lastAth)/lastAth, 3)}
             dt = dt.append(myrow, ignore_index=True)
         
         # -- Check If you have to open a SHORT --
         if openShortCondition(row, previousRow):
             orderInProgress = 'SHORT'
             closePrice = row['close']
-            shortIniPrice = row['close'] #- takerFee * row['close']
-            #fee = wallet * leverage * takerFee
-            #amount = wallet * leverage - fee
+            shortIniPrice = row['close'] 
             fee = wallet * proportionTrading * leverage * takerFee
             amount = wallet * proportionTrading * leverage - fee     
             wallet -= fee
             tokenAmount = amount / row['close']
-            #shortLiquidationPrice = shortIniPrice + (wallet/tokenAmount)
+            shortLiquidationPrice = shortIniPrice + (wallet/tokenAmount)
             if stopLossActivation:
                 stopLoss = closePrice + SlPct * closePrice
-                #stopLoss = closePrice + row['ATR']
             if takeProfitActivation:
                 takeProfit = closePrice - TpPct * closePrice
-                #takeProfit = closePrice - row['ATR'] * 2
             # -- Add the trade to DT to analyse it later --
-            myrow = {'date': index, 'position': 'Open Short', 'reason': 'Open Short Market', 'price': round(closePrice, 1),
-                     'frais': round(fee, 3), 'wallet':round(wallet+fee, 1), 'drawBack': round((wallet-lastAth)/lastAth, 3)}
+            myrow = {'date': index, 'position': 'Open Short', 'reason': 'Open Short Market', 'price': round(closePrice, 2),
+                     'frais': round(fee, 3), 'wallet':round(wallet+fee, 2), 'drawBack': round((wallet-lastAth)/lastAth, 3)}
             dt = dt.append(myrow, ignore_index=True)
     previousRow = row
 
@@ -303,7 +278,7 @@ dt.loc[dt['resultat%'] < 0, 'tradeIs'] = 'Bad'
 iniClose = dfTest.iloc[0]['close']
 lastClose = dfTest.iloc[len(dfTest)-1]['close']
 holdPercentage = ((lastClose - iniClose)/iniClose)
-holdWallet = holdPercentage * leverage * initialWallet
+holdWallet = (1+holdPercentage) * initialWallet
 algoPercentage = ((wallet - initialWallet)/initialWallet)
 vsHoldPercentage = ((wallet - holdWallet)/holdWallet) * 100
 
@@ -341,87 +316,21 @@ except:
     worstTrade = 0
     print("/!\ There is no Bad Trades in your BackTest, maybe a problem...")
 
-totalTrades = TotalBadTrades + TotalGoodTrades
-
-try:
-    TotalLongTrades = dt.groupby('position')['date'].nunique()['LONG']
-    AverageLongTrades = round(dt.loc[dt['position'] == 'LONG', 'resultat%'].sum()
-                              / dt.loc[dt['position'] == 'LONG', 'resultat%'].count(), 2)
-    idBestLong = dt.loc[dt['position'] == 'LONG', 'resultat%'].idxmax()
-    bestLongTrade = str(
-        round(dt.loc[dt['position'] == 'LONG', 'resultat%'].max(), 2))
-    idWorstLong = dt.loc[dt['position'] == 'LONG', 'resultat%'].idxmin()
-    worstLongTrade = str(
-        round(dt.loc[dt['position'] == 'LONG', 'resultat%'].min(), 2))
-except:
-    AverageLongTrades = 0
-    TotalLongTrades = 0
-    bestLongTrade = ''
-    idBestLong = ''
-    idWorstLong = ''
-    worstLongTrade = ''
-    print("/!\ There is no LONG Trades in your BackTest, maybe a problem...")
-
-try:
-    TotalShortTrades = dt.groupby('position')['date'].nunique()['SHORT']
-    AverageShortTrades = round(dt.loc[dt['position'] == 'SHORT', 'resultat%'].sum()
-                               / dt.loc[dt['position'] == 'SHORT', 'resultat%'].count(), 2)
-    idBestShort = dt.loc[dt['position'] == 'SHORT', 'resultat%'].idxmax()
-    bestShortTrade = str(
-        round(dt.loc[dt['position'] == 'SHORT', 'resultat%'].max(), 2))
-    idWorstShort = dt.loc[dt['position'] == 'SHORT', 'resultat%'].idxmin()
-    worstShortTrade = str(
-        round(dt.loc[dt['position'] == 'SHORT', 'resultat%'].min(), 2))
-except:
-    AverageShortTrades = 0
-    TotalShortTrades = 0
-    bestShortTrade = ''
-    idBestShort = ''
-    idWorstShort = ''
-    worstShortTrade = ''
-    print("/!\ There is no SHORT Trades in your BackTest, maybe a problem...")
-
-try:
-    totalGoodLongTrade = dt.groupby(['position', 'tradeIs']).size()['LONG']['Good']
-except:
-    totalGoodLongTrade = 0
-    print("/!\ There is no good LONG Trades in your BackTest, maybe a problem...")
-
-try:
-    totalBadLongTrade = dt.groupby(['position', 'tradeIs']).size()['LONG']['Bad']
-except:
-    totalBadLongTrade = 0
-    print("/!\ There is no bad LONG Trades in your BackTest, maybe a problem...")
-
-try:
-    totalGoodShortTrade = dt.groupby(['position', 'tradeIs']).size()['SHORT']['Good']
-except:
-    totalGoodShortTrade = 0
-    print("/!\ There is no good SHORT Trades in your BackTest, maybe a problem...")
-
-try:
-    totalBadShortTrade = dt.groupby(['position', 'tradeIs']).size()['SHORT']['Bad']
-except:
-    totalBadShortTrade = 0
-    print("/!\ There is no bad SHORT Trades in your BackTest, maybe a problem...")
-
 TotalTrades = TotalGoodTrades + TotalBadTrades
 winRateRatio = (TotalGoodTrades/TotalTrades) * 100
 
 reasons = dt['reason'].unique()
 
-print("BackTest finished, final wallet :",wallet,"$")
+print("BackTest finished, final wallet :", round(wallet,2), "$")
 
 print("Pair Symbol :",pairName,)
-print("Period : [" + str(dfTest.index[0]) + "] -> [" +
-      str(dfTest.index[len(dfTest)-1]) + "]")
+print("Period : [" + str(dfTest.index[0]) + "] -> [" + str(dfTest.index[len(dfTest)-1]) + "]")
 print("Starting balance :", initialWallet, "$")
 
 print("\n----- General Informations -----")
 print("Final balance :", round(wallet, 2), "$")
 print("Performance vs US Dollar :", round(algoPercentage*100, 2), "%")
-print("Buy and Hold Performence :", round(holdPercentage*100, 2),
-      "% | with Leverage :", round(holdPercentage*100, 2)*leverage, "%")
+print("Buy and Hold Performence :", round(holdPercentage*100, 2), "%")
 print("Performance vs Buy and Hold :", round(vsHoldPercentage, 2), "%")
 print("Best trade : +"+bestTrade, "%, the ", idbest)
 print("Worst trade :", worstTrade, "%, the ", idworst)
@@ -429,7 +338,7 @@ print("Worst drawBack :", str(round(100*dt['drawBack'].min(), 2)), "%")
 print("Total fees : ", round(dt['frais'].sum(), 2), "$")
 
 print("\n----- Trades Informations -----")
-print("Total trades on period :",totalTrades)
+print("Total trades on period :", TotalTrades)
 print("Number of positive trades :", TotalGoodTrades)
 print("Number of negative trades : ", TotalBadTrades)
 print("Trades win rate ratio :", round(winRateRatio, 2), '%')
@@ -437,30 +346,12 @@ print("Average trades performance :",tradesPerformance,"%")
 print("Average positive trades :", AveragePercentagePositivTrades, "%")
 print("Average negative trades :", AveragePercentageNegativTrades, "%")
 
-"""print("\n----- LONG Trades Informations -----")
-print("Number of LONG trades :",TotalLongTrades)
-print("Average LONG trades performance :",AverageLongTrades, "%")
-print("Best  LONG trade +"+bestLongTrade, "%, the ", idBestLong)
-print("Worst LONG trade", worstLongTrade, "%, the ", idWorstLong)
-print("Number of positive LONG trades :",totalGoodLongTrade)
-print("Number of negative LONG trades :",totalBadLongTrade)
-print("LONG trade win rate ratio :", round(totalGoodLongTrade/TotalLongTrades*100, 2), '%')
-print("\n----- SHORT Trades Informations -----")
-print("Number of SHORT trades :",TotalShortTrades)
-print("Average SHORT trades performance :",AverageShortTrades, "%")
-print("Best  SHORT trade +"+bestShortTrade, "%, the ", idBestShort)
-print("Worst SHORT trade", worstShortTrade, "%, the ", idWorstShort)
-print("Number of positive SHORT trades :",totalGoodShortTrade)
-print("Number of negative SHORT trades :",totalBadShortTrade)
-print("SHORT trade win rate ratio :", round(totalGoodShortTrade/TotalShortTrades*100, 2), '%')"""
-
 print("\n----- Trades Reasons -----")
 reasons = dt['reason'].unique()
 for r in reasons:
     print(r+" number :", dt.groupby('reason')['date'].nunique()[r])
 
 dt[['wallet', 'price']].plot(subplots=True, figsize=(20, 10))
-print("\n----- Plot -----")
 
 
 print("Global performance :", round(algoPercentage*100), "%")
@@ -479,10 +370,8 @@ while myYear <= lastYear:
                     dt.loc[myString].iloc[0]['wallet'])/dt.loc[myString].iloc[0]['wallet']
     except:
         myResult = 0
-    myrow = {
-            'date': str(datetime.date(1900, myMonth, 1).strftime('%B')) + " " + str(myYear),
-            'result': round(myResult*100)
-            }
+    myrow = {'date': str(datetime.date(1900, myMonth, 1).strftime('%B')) + " " + str(myYear),
+            'result': round(myResult*100)}
     dfTemp = dfTemp.append(myrow, ignore_index=True)
     if myMonth < 12:
         myMonth += 1
@@ -491,3 +380,6 @@ while myYear <= lastYear:
        myYear += 1    
 for index, row in dfTemp.iterrows():
     print(row.date + ":" + str(round(row.result)) + "%")
+
+del dt['date']
+dt.to_csv('trades.csv')
