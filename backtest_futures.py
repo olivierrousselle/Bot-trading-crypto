@@ -88,7 +88,6 @@ shortIniPrice = 0
 longLiquidationPrice = 500000
 shortLiquidationPrice = 0
 
-row = dfTest.iloc[-2]
 
 # -- Condition to open Market LONG --
 def openLongCondition(row, previousRow):
@@ -166,10 +165,6 @@ for index, row in dfTest[1:].iterrows():
                 position = 'Close Long'
                 reason = 'Close Market Long'
                 closePosition = True
-            """else:
-                stopLossTrail = row['close'] - SlPct * row['close']
-                if stopLossTrail < row['close'] and stopLossTrail > stopLoss:
-                    stopLoss = stopLossTrail"""
                 
         # -- Check if there is a SHORT order in progress --
         elif orderInProgress == 'SHORT':
@@ -204,11 +199,7 @@ for index, row in dfTest[1:].iterrows():
                 pr_change = -(closePrice - shortIniPrice) / shortIniPrice
                 position = 'Close Short'
                 reason = 'Close Market Short'
-                closePosition = True
-            """else:
-                stopLossTrail = row['close'] + SlPct * row['close']
-                if stopLossTrail > row['close'] and stopLossTrail < stopLoss:
-                    stopLoss = stopLossTrail"""             
+                closePosition = True        
                 
         if closePosition:
             #fee = wallet * (1+pr_change) * leverage * takerFee
@@ -352,34 +343,6 @@ for r in reasons:
     print(r+" number :", dt.groupby('reason')['date'].nunique()[r])
 
 dt[['wallet', 'price']].plot(subplots=True, figsize=(20, 10))
-
-
-print("Global performance :", round(algoPercentage*100), "%")
-lastMonth = int(dt.iloc[-1]['date'].month)
-lastYear = int(dt.iloc[-1]['date'].year)
-dt = dt.set_index(dt['date'])
-dt.index = pd.to_datetime(dt.index)
-myMonth = int(dt.iloc[0]['date'].month)
-myYear = int(dt.iloc[0]['date'].year)
-custom_palette = {}
-dfTemp = pd.DataFrame([])
-while myYear <= lastYear:
-    myString = str(myYear) + "-" + str(myMonth)
-    try:
-        myResult = (dt.loc[myString].iloc[-1]['wallet'] -
-                    dt.loc[myString].iloc[0]['wallet'])/dt.loc[myString].iloc[0]['wallet']
-    except:
-        myResult = 0
-    myrow = {'date': str(datetime.date(1900, myMonth, 1).strftime('%B')) + " " + str(myYear),
-            'result': round(myResult*100)}
-    dfTemp = dfTemp.append(myrow, ignore_index=True)
-    if myMonth < 12:
-        myMonth += 1
-    else:
-       myMonth = 1
-       myYear += 1    
-for index, row in dfTemp.iterrows():
-    print(row.date + ":" + str(round(row.result)) + "%")
 
 del dt['date']
 dt.to_csv('trades.csv')
